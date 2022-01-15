@@ -1,4 +1,4 @@
-module github.com/alextonkonogov/gb-go-observability/homework1
+module github.com/alextonkonogov/gb-go-observability/homework1/app
 
 go 1.15
 
