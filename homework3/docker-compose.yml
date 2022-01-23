@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  app:
+    build: app
+    restart: always
+    ports:
+      - 9000:9000
+    depends_on:
+      - pg_db
+
+  pg_db:
+    image: postgres:13.1
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "6831:6831/udp"
+      - "16686:16686"
