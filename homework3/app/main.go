@@ -26,7 +26,7 @@ func main() {
 		logger.WithError(err).Fatal()
 	}
 
-	tracer, closer, err := jTracer.InitJaeger("example", logger)
+	tracer, closer, err := jTracer.InitJaeger("motivation", logger)
 	defer closer.Close()
 
 	ctx := context.Background()
@@ -46,7 +46,7 @@ func main() {
 	r := mux.NewRouter()
 	r.Path("/").HandlerFunc(a.startPage)
 
-	srv := &http.Server{Addr: "0.0.0.0:9000", Handler: r}
+	srv := &http.Server{Addr: "0.0.0.0:8080", Handler: r}
 	srv.ListenAndServe()
 }
 
