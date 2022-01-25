@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -13,7 +12,7 @@ import (
 )
 
 func InitDBConn(ctx context.Context, appConfig *config.AppConfig) (dbpool *pgxpool.Pool, err error) {
-	url := "postgres://postgres:password@pg_db:5432/postgres?sslmode=disable"
+	url := "postgres://postgres:password@localhost:5432/postgres?sslmode=disable"
 	fmt.Println(url)
 
 	cfg, err := pgxpool.ParseConfig(url)
@@ -116,17 +115,6 @@ func InitTables(ctx context.Context, dbpool *pgxpool.Pool) (err error) {
 					('Если останавливаться всякий раз, когда тебя оскорбляют или в тебя плюются, то ты никогда не дойдешь до места, куда тебе надо попасть.', 'Тибор Фишер', 1),
 					('Если тебе не нравится то, что ты получаешь, измени то, что ты даешь.', 'Карлос Кастанеда', 1);`
 
-	requests := strings.Split(query, ";")
-
-	for _, v := range requests {
-		strings.TrimSpace(v)
-		if v != "" {
-			_, err = dbpool.Exec(ctx, v)
-			if err != nil {
-				return
-			}
-		}
-	}
-
-	return
+	_, err = dbpool.Exec(ctx, query)
+	return err
 }

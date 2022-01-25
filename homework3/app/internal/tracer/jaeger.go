@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"io"
 
+	"go.uber.org/zap"
+
 	"github.com/opentracing/opentracing-go"
-	"github.com/sirupsen/logrus"
 	"github.com/uber/jaeger-client-go/config"
 )
 
 type zapWrapper struct {
-	logger *logrus.Logger
+	logger *zap.Logger
 }
 
 // Error logs a message at error priority
@@ -20,10 +21,10 @@ func (w *zapWrapper) Error(msg string) {
 
 // Infof logs a message at info priority
 func (w *zapWrapper) Infof(msg string, args ...interface{}) {
-	w.logger.Infof(msg, args...)
+	w.logger.Sugar().Infof(msg, args...)
 }
 
-func InitJaeger(service string, logger *logrus.Logger) (opentracing.Tracer, io.Closer, error) {
+func InitJaeger(service string, logger *zap.Logger) (opentracing.Tracer, io.Closer) {
 	cfg := &config.Configuration{
 		ServiceName: service,
 		Sampler: &config.SamplerConfig{
@@ -37,8 +38,8 @@ func InitJaeger(service string, logger *logrus.Logger) (opentracing.Tracer, io.C
 
 	tracer, closer, err := cfg.NewTracer(config.Logger(&zapWrapper{logger: logger}))
 	if err != nil {
-		err = fmt.Errorf("ERROR: cannot init Jaeger: %v\n", err)
+		panic(fmt.Sprintf("ERROR: cannot init Jaeger: %v\n", err))
 	}
 
-	return tracer, closer, err
+	return tracer, closer
 }

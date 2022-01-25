@@ -3,42 +3,49 @@ package main
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap/zapcore"
 	"html/template"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	"github.com/opentracing/opentracing-go"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
 	aConfig "github.com/alextonkonogov/gb-go-observability/homework3/app/internal/config"
-	"github.com/alextonkonogov/gb-go-observability/homework3/app/internal/log"
 	"github.com/alextonkonogov/gb-go-observability/homework3/app/internal/repository"
 	"github.com/alextonkonogov/gb-go-observability/homework3/app/internal/storage"
 	jTracer "github.com/alextonkonogov/gb-go-observability/homework3/app/internal/tracer"
 )
 
 func main() {
-	logger := log.NewLogWithConfiguration()
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer func() { _ = logger.Sync() }()
 
 	cnfg, err := aConfig.NewAppConfig()
 	if err != nil {
-		logger.WithError(err).Fatal()
+		log.Fatal(err)
 	}
 
-	tracer, closer, err := jTracer.InitJaeger("motivation", logger)
+	tracer, closer := jTracer.InitJaeger("motivation", logger)
 	defer closer.Close()
 
 	ctx := context.Background()
 	dbpool, err := storage.InitDBConn(ctx, cnfg)
 	if err != nil {
-		logger.WithError(err).Fatal()
+		log.Fatal(err)
 	}
 	defer dbpool.Close()
 
 	err = storage.InitTables(ctx, dbpool)
 	if err != nil {
-		logger.WithError(err).Fatal()
+		log.Fatal(err)
 	}
 
 	a := newApp(ctx, dbpool, logger, tracer)
@@ -46,25 +53,26 @@ func main() {
 	r := mux.NewRouter()
 	r.Path("/").HandlerFunc(a.startPage)
 
-	srv := &http.Server{Addr: "0.0.0.0:8080", Handler: r}
-	srv.ListenAndServe()
+	http.ListenAndServe("0.0.0.0:8080", nethttp.Middleware(a.tracer, r))
 }
 
 type app struct {
 	ctx        context.Context
 	dbpool     *pgxpool.Pool
-	logger     *logrus.Logger
+	logger     *zap.Logger
 	tracer     opentracing.Tracer
 	repository *repository.Repository
 }
 
-func newApp(ctx context.Context, dbpool *pgxpool.Pool, logger *logrus.Logger, tracer opentracing.Tracer) *app {
+func newApp(ctx context.Context, dbpool *pgxpool.Pool, logger *zap.Logger, tracer opentracing.Tracer) *app {
 	return &app{ctx, dbpool, logger, tracer, repository.NewRepository(dbpool, tracer)}
 }
 
 func (a app) startPage(w http.ResponseWriter, r *http.Request) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(r.Context(), a.tracer, "startPageHandler")
 	defer span.Finish()
+
+	a.logger.Info("motivationHandler called", zap.Field{Key: "method", String: r.Method, Type: zapcore.StringType})
 
 	motivation, err := a.repository.GetRandomMotivation(ctx, a.dbpool)
 	if err != nil {
